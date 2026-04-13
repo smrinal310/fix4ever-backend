@@ -1,0 +1,36 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    image: fix4ever-backend:latest
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+    volumes:
+      - ./public/uploads:/usr/src/app/public/uploads
+    healthcheck:
+      # Use node (available in the image) to probe the health endpoint
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/health',res=>{if(res.statusCode!==200)process.exit(1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  mongo:
+    image: mongo:6.0
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: fix4ever
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
+
+# Notes:
+# - This compose file provides an optional local MongoDB service. If you use MongoDB Atlas (MONGODB_URL in .env), you can remove the `mongo` service and `depends_on`.
