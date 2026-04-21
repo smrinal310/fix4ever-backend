@@ -3,6 +3,7 @@ import http from 'http';
 import { connect } from './config/dbConfig';
 import { createSocketServer } from './sockets/sockets';
 import { migrateRequestIds } from './utils/migrateRequestIds';
+import { ensureDraftTtlIndex } from './utils/ensureDraftTtlIndex';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -787,6 +788,7 @@ app.use((err: any, req: any, res: any, next: any) => {
 
 // Use port 8080 for all services
 const PORT = 8080;
+const HOST = '0.0.0.0';
 
 // Log environment variables for debugging
 console.log('🔧 Environment Configuration:');
@@ -806,20 +808,26 @@ console.log(
   `   GOOGLE_CLIENT_ID: ${process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not configured'}`
 );
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
-  // Run migration once DB is ready (connection may still be opening at this point)
-  const runMigration = () =>
-    migrateRequestIds().catch(err => console.error('[Migration] Failed:', err));
+  // Run startup migrations once DB is ready (connection may still be opening at this point)
+  const runMigrations = async () => {
+    try {
+      await migrateRequestIds();
+      await ensureDraftTtlIndex();
+    } catch (err) {
+      console.error('[Migration] Failed:', err);
+    }
+  };
   if (mongoose.connection.readyState === 1) {
-    runMigration();
+    runMigrations();
   } else {
-    mongoose.connection.once('connected', runMigration);
+    mongoose.connection.once('connected', runMigrations);
   }
-  console.log(`🔗 API URL: http://localhost:${PORT}/api`);
+  console.log(`🔗 API URL: http://${HOST}:${PORT}/api`);
   console.log(`🔗 OAuth URLs:`);
-  console.log(`   Google login: http://localhost:${PORT}/api/auth/google/login`);
-  const backendUrl = process.env.BACKEND_URL || `http://localhost:${PORT}`;
+  console.log(`   Google login: http://${HOST}:${PORT}/api/auth/google/login`);
+  const backendUrl = process.env.BACKEND_URL || `http://${HOST}:${PORT}`;
   console.log(
     `   Google redirect URI (add this in Google Cloud Console): ${backendUrl}/api/auth/google/callback`
   );

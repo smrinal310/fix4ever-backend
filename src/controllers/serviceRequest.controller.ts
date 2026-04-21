@@ -490,23 +490,13 @@ export const createServiceRequest = async (req: AuthRequest, res: Response) => {
     console.log('Verified from DB - Count:', verifyRequest?.issueImages?.length || 0);
     console.log('================================');
 
-    // Clean up any active drafts for this user after successful service request creation
-    // This ensures drafts don't persist after a request is submitted directly (not via draft conversion)
+    // Clean up the exact draft that was just submitted, if the client provided it.
     try {
       const DraftServiceRequest = require('../models/draftServiceRequest.model').default;
-      await DraftServiceRequest.updateMany(
-        {
-          customerId,
-          status: 'DRAFT',
-        },
-        {
-          $set: {
-            status: 'SUBMITTED',
-            isCompleted: true,
-            convertedToServiceRequestId: savedRequest._id,
-          },
-        }
-      );
+      const draftId = req.body?.draftId as string | undefined;
+      if (draftId) {
+        await DraftServiceRequest.deleteOne({ _id: draftId });
+      }
     } catch (draftCleanupError) {
       console.error(
         'Non-critical: Failed to clean up drafts after service request creation:',

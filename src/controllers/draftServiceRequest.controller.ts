@@ -123,34 +123,16 @@ export const createOrUpdateDraft = async (req: AuthRequest, res: Response) => {
       // New drafts should ONLY be created from home screen with createNew=true
     }
 
-    // Calculate completion percentage
-    const requiredFields = ['address', 'city', 'brand', 'model', 'requestType', 'serviceType'];
-    const optionalFields = [
-      'problemDescription',
-      'userName',
-      'userPhone',
-      'preferredDate',
-      'preferredTime',
-    ];
-
-    let completedFields = 0;
-    let totalFields = requiredFields.length + optionalFields.length;
-
-    // Check required fields
-    requiredFields.forEach(field => {
-      if (req.body[field] && req.body[field].toString().trim()) {
-        completedFields++;
-      }
-    });
-
-    // Check optional fields
-    optionalFields.forEach(field => {
-      if (req.body[field] && req.body[field].toString().trim()) {
-        completedFields++;
-      }
-    });
-
-    const completionPercentage = Math.round((completedFields / totalFields) * 100);
+    // Calculate completion percentage based on step progress.
+    // currentStep is stored as a 0-based index and there are 7 total steps (0..6).
+    const TOTAL_STEPS = 7;
+    const MAX_STEP_INDEX = TOTAL_STEPS - 1;
+    const hasIncomingCurrentStep = currentStep !== undefined && currentStep !== null;
+    const stepSource = hasIncomingCurrentStep ? currentStep : draft?.currentStep;
+    const parsedStep = Number(stepSource);
+    const normalizedStep = Number.isFinite(parsedStep) ? parsedStep : 0;
+    const safeStepIndex = Math.min(Math.max(normalizedStep, 0), MAX_STEP_INDEX);
+    const completionPercentage = Math.round((safeStepIndex / MAX_STEP_INDEX) * 100);
 
     if (draft) {
       // Update existing draft - only update fields that are provided

@@ -107,7 +107,14 @@ const DraftServiceRequestSchema: Schema = new Schema({
 // Index for efficient queries
 DraftServiceRequestSchema.index({ customerId: 1, createdAt: -1 });
 DraftServiceRequestSchema.index({ sessionId: 1, createdAt: -1 });
-DraftServiceRequestSchema.index({ expiresAt: 1 });
+DraftServiceRequestSchema.index(
+  { expiresAt: 1 },
+  {
+    name: 'draft_expiresAt_ttl',
+    expireAfterSeconds: 0,
+    partialFilterExpression: { status: 'DRAFT' },
+  }
+);
 DraftServiceRequestSchema.index({ isCompleted: 1 });
 DraftServiceRequestSchema.index({ status: 1 }); // Index for status filtering
 DraftServiceRequestSchema.index({ customerId: 1, status: 1 }); // Compound index for user drafts
