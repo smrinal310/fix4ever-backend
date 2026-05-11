@@ -23,11 +23,19 @@ export const draftAuth = async (req: AuthRequest, res: Response, next: NextFunct
     // If token is provided, verify it and set user
     if (token) {
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
-        const user = await User.findById(decoded.userId).select('-password');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
 
-        if (user) {
-          req.user = { userId: user._id, ...decoded };
+        try {
+          const user = await User.findById(decoded.id).select('-password');
+          if (user) {
+            req.user = { userId: user._id.toString(), email: user.email, role: user.role, username: user.username, phone: user.phone };
+          } else {
+            // Fallback to token data if user not found in DB
+            req.user = { userId: decoded.id, email: decoded.email, role: decoded.role || 'user', username: decoded.username, phone: decoded.phone || '' };
+          }
+        } catch {
+          // DB unavailable — use token data as fallback
+          req.user = { userId: decoded.id, email: decoded.email, role: decoded.role || 'user', username: decoded.username, phone: decoded.phone || '' };
         }
       } catch (tokenError) {
         // Token is invalid, but we might still have a session ID
