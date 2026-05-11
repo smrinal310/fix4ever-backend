@@ -11,6 +11,7 @@ import {
   googleCallback,
   updateUserRole,
   WorkSpaceOTPVerify,
+  refreshAccessToken,
 } from '../controllers/auth.controller';
 import {
   sendOTP,
@@ -37,6 +38,7 @@ router.post('/logout', (req, res) => {
 });
 router.post('/login/phone/send-otp', sendOTPToPhone);
 router.post('/login/phone/verify-otp', loginwithphone);
+router.post('/refresh-token', refreshAccessToken);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.get('/profile', authenticateToken, getProfile);

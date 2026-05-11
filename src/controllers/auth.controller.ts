@@ -326,7 +326,13 @@ export const signup = async (req: Request, res: Response) => {
     const token = jwt.sign(
       { id: newUser._id },
       process.env.JWT_SECRET as string,
-      { expiresIn: '24h' } // Extended from 1h to 24h
+      { expiresIn: '24h' }
+    );
+
+    const refreshToken = jwt.sign(
+      { id: newUser._id, type: 'refresh' },
+      process.env.JWT_SECRET as string,
+      { expiresIn: '180d' }
     );
 
     // Set cookie for session management
@@ -345,6 +351,7 @@ export const signup = async (req: Request, res: Response) => {
       success: true,
       message: 'User created successfully.',
       token,
+      refreshToken,
       user: userResponse,
     });
   } catch (error: any) {
@@ -406,12 +413,16 @@ export const login = async (req: Request, res: Response) => {
         phone: user.phone,
       },
       process.env.JWT_SECRET as string,
-      {
-        expiresIn: '24h', // Extended from 1h to 24h
-      }
+      { expiresIn: '24h' }
     );
+
+    const refreshToken = jwt.sign(
+      { id: user._id, type: 'refresh' },
+      process.env.JWT_SECRET as string,
+      { expiresIn: '180d' }
+    );
+
     res.cookie('token', token, getCookieOptions(24 * 60 * 60 * 1000));
-    console.log(token);
 
     // Return user data and token for frontend authentication
     const userResponse = {
@@ -426,6 +437,7 @@ export const login = async (req: Request, res: Response) => {
       success: true,
       message: 'Login successful.',
       token,
+      refreshToken,
       user: userResponse,
     });
   } catch (error: any) {
@@ -490,10 +502,15 @@ export const loginwithphone = async (req: Request, res: Response) => {
         phone: user.phone,
       },
       process.env.JWT_SECRET as string,
-      {
-        expiresIn: '24h', // Extended from 1h to 24h
-      }
+      { expiresIn: '24h' }
     );
+
+    const refreshToken = jwt.sign(
+      { id: user._id, type: 'refresh' },
+      process.env.JWT_SECRET as string,
+      { expiresIn: '180d' }
+    );
+
     res.cookie('token', token, getCookieOptions(24 * 60 * 60 * 1000));
 
     // Return user data and token for frontend authentication
@@ -509,6 +526,7 @@ export const loginwithphone = async (req: Request, res: Response) => {
       success: true,
       message: 'Phone login successful.',
       token,
+      refreshToken,
       user: userResponse,
     });
   } catch (error: any) {
@@ -1099,5 +1117,45 @@ export const updateUserRole = async (req: Request, res: Response) => {
       message: 'Failed to update user role',
       error: error.message,
     });
+  }
+};
+
+export const refreshAccessToken = async (req: Request, res: Response) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(400).json({ success: false, message: 'Refresh token is required.' });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET as string) as any;
+
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({ success: false, message: 'Invalid refresh token.', error: 'REFRESH_TOKEN_INVALID' });
+    }
+
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'User not found.', error: 'USER_NOT_FOUND' });
+    }
+
+    const newToken = jwt.sign(
+      {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        role: user.role || 'user',
+        phone: user.phone,
+      },
+      process.env.JWT_SECRET as string,
+      { expiresIn: '24h' }
+    );
+
+    return res.status(200).json({ success: true, token: newToken });
+  } catch (error: any) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ success: false, message: 'Refresh token expired. Please log in again.', error: 'REFRESH_TOKEN_EXPIRED' });
+    }
+    return res.status(401).json({ success: false, message: 'Invalid refresh token.', error: 'REFRESH_TOKEN_INVALID' });
   }
 };
